@@ -13,46 +13,48 @@ import {
   Radio,
   Zap,
   Check,
-  XCircle
+  XCircle,
+  Copy,
+  Target
 } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000';
 
 const TEST_PRESETS = [
   {
-    label: '1. Clean Domain',
+    label: '1. Exact Trusted (Microsoft)',
+    url: 'https://microsoft.com',
+    description: 'Expected: Clean / Not Flagged (Legitimate)'
+  },
+  {
+    label: '2. Combosquat (microsoft-login)',
+    url: 'https://microsoft-login.com',
+    description: 'Expected: Impersonation of microsoft.com'
+  },
+  {
+    label: '3. Typosquat (micros0ft)',
+    url: 'https://micros0ft.com',
+    description: 'Expected: Typosquat of microsoft.com'
+  },
+  {
+    label: '4. Exact Trusted (Google)',
+    url: 'https://google.com',
+    description: 'Expected: Clean / Not Flagged (Legitimate)'
+  },
+  {
+    label: '5. Typosquat (paypa1)',
+    url: 'https://paypa1.com',
+    description: 'Expected: Typosquat of paypal.com'
+  },
+  {
+    label: '6. Unrelated Benign (example)',
     url: 'https://example.com',
-    description: 'Expected: LOW risk (0/100, no flags)'
-  },
-  {
-    label: '2. IP + Login Keyword',
-    url: 'http://192.168.1.10/login',
-    description: 'Expected: ip_based + suspicious_keywords'
-  },
-  {
-    label: '3. Unusual Port + Login',
-    url: 'https://example.com:8080/login',
-    description: 'Expected: unusual_port + suspicious_keywords'
-  },
-  {
-    label: '4. Multiple Keywords',
-    url: 'https://example.com/account/verify',
-    description: 'Expected: suspicious_keywords (account, verify)'
-  },
-  {
-    label: '5. Percent-Encoded URL',
-    url: 'https://example.com/login%20page%3Fid%3D1',
-    description: 'Expected: encoded_characters (%20, %3F, %3D)'
-  },
-  {
-    label: '6. Deep Subdomain + Phish',
-    url: 'https://login.verify.security.auth.example.com/update',
-    description: 'Expected: unusual_subdomain + suspicious_keywords'
+    description: 'Expected: Clean / No Impersonation'
   }
 ];
 
 export function App() {
-  const [url, setUrl] = useState('https://example.com');
+  const [url, setUrl] = useState('https://micros0ft.com');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -170,11 +172,11 @@ export function App() {
                   THREAT<span className="text-cyan-400">LENS</span>
                 </span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
-                  PHASE 2: HEURISTICS
+                  PHASE 3: TYPOSQUATTING
                 </span>
               </div>
               <p className="text-[10px] uppercase font-mono tracking-widest text-slate-400">
-                Rule-Based URL Risk Analysis Engine
+                Domain Similarity & Brand Impersonation Engine
               </p>
             </div>
           </div>
@@ -220,13 +222,13 @@ export function App() {
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono mb-3">
             <Zap className="h-3.5 w-3.5 text-cyan-400" />
-            Deterministic URL Risk Heuristic Analyzer
+            Phase 3: Levenshtein Distance & Brand Impersonation Analyzer
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Analyze URL for Malicious Indicators
+            Analyze URL for Typosquatting & Phishing Risk
           </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-            Inspects URLs for raw IP hostnames, non-standard ports, phishing authentication keywords, character obfuscation, and deep subdomains.
+            Detects lookalike domains mimicking trusted brands (Microsoft, Google, PayPal, Amazon, Apple) alongside URL heuristics.
           </p>
         </div>
 
@@ -257,7 +259,7 @@ export function App() {
             <div className="pt-2">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
-                  Phase 2 Test Cases:
+                  Phase 3 Test Presets:
                 </span>
                 <span className="text-[10px] font-mono text-cyan-400">
                   Click to auto-fill
@@ -295,12 +297,12 @@ export function App() {
                 {loading ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
-                    Executing Heuristics on FastAPI...
+                    Executing Heuristics & Typosquatting Analysis...
                   </>
                 ) : (
                   <>
                     <Search className="h-4 w-4" />
-                    Analyze URL
+                    Analyze URL & Domain
                   </>
                 )}
               </button>
@@ -318,7 +320,7 @@ export function App() {
             </div>
           )}
 
-          {/* Phase 2 Heuristic Result Display */}
+          {/* Analysis Results Display */}
           {result && (
             <div className="mt-6 pt-6 border-t border-slate-800 space-y-5 animate-in fade-in duration-300">
               {/* Header with Risk Level and Score */}
@@ -354,13 +356,60 @@ export function App() {
                 </div>
               </div>
 
+              {/* Phase 3: Typosquatting / Brand Impersonation Banner */}
+              <div
+                className={`p-4 rounded-xl border font-mono text-xs ${
+                  result.typosquatting?.detected
+                    ? 'bg-rose-950/40 border-rose-500/50 text-rose-200 shadow-[0_0_20px_rgba(244,63,94,0.15)]'
+                    : 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    {result.typosquatting?.detected ? (
+                      <AlertTriangle className="h-5 w-5 text-rose-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold uppercase tracking-wider text-white">
+                          {result.typosquatting?.detected
+                            ? 'Possible Brand Impersonation / Typosquatting'
+                            : 'Authentic / No Typosquatting Detected'}
+                        </span>
+                        {result.typosquatting?.detected && (
+                          <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 text-[10px] border border-rose-500/40">
+                            Similarity: {Math.round((result.typosquatting.similarity || 0) * 100)}%
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-slate-300 text-[11px] leading-relaxed">
+                        {result.typosquatting?.detected
+                          ? result.typosquatting.reason
+                          : 'Domain does not exhibit high similarity or typosquatting patterns against trusted domains.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {result.typosquatting?.detected && result.typosquatting.matched_domain && (
+                    <div className="shrink-0 text-right hidden sm:block">
+                      <span className="text-[10px] text-slate-400 block">Targeting Brand</span>
+                      <span className="text-xs font-bold text-cyan-300">
+                        {result.typosquatting.matched_domain}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Analyzed Target Details */}
               <div className="p-3 rounded-lg bg-slate-900/60 border border-slate-800/80 font-mono text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span className="text-slate-400">Analyzed Target:</span>
                 <span className="text-cyan-300 font-semibold break-all">{result.url}</span>
               </div>
 
-              {/* Detected Heuristic Signals Grid */}
+              {/* Detected Heuristic Signals Grid (Phase 2) */}
               <div>
                 <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 mb-2.5">
                   Heuristic Signals Assessment:
@@ -488,7 +537,7 @@ export function App() {
                 ) : (
                   <div className="flex items-center gap-2 text-emerald-400 text-[11px] py-1">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>No heuristic threat indicators triggered. URL exhibits standard benign characteristics.</span>
+                    <span>No threat indicators triggered. URL exhibits standard benign characteristics.</span>
                   </div>
                 )}
               </div>
@@ -517,7 +566,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 py-4 px-4 text-center text-xs font-mono text-slate-600">
-        ThreatLens Platform • Phase 2 Rule-Based Heuristics • React + FastAPI
+        ThreatLens Platform • Phase 3 Typosquatting & Heuristics • React + FastAPI
       </footer>
     </div>
   );

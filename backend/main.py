@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 try:
     from backend.analyzer import analyze_url_heuristics
@@ -10,8 +10,8 @@ except ImportError:
 
 app = FastAPI(
     title="ThreatLens API",
-    version="2.0.0",
-    description="ThreatLens Phishing & Malicious Link Risk Analysis API - Phase 2 Heuristic Engine"
+    version="3.0.0",
+    description="ThreatLens Phishing & Malicious Link Risk Analysis API - Phase 3 Domain Typosquatting Engine"
 )
 
 # Enable CORS for React frontend
@@ -33,20 +33,27 @@ class SignalsSchema(BaseModel):
     encoded_characters: bool
     unusual_subdomain: bool
 
+class TyposquattingSchema(BaseModel):
+    detected: bool
+    matched_domain: Optional[str] = None
+    similarity: float = 0.0
+    reason: Optional[str] = None
+
 class AnalyzeResponse(BaseModel):
     url: str
     risk_score: int
     risk_level: str
     reasons: List[str]
     signals: SignalsSchema
+    typosquatting: TyposquattingSchema
 
 @app.get("/")
 def health_check():
     return {
         "service": "ThreatLens API",
         "status": "online",
-        "phase": 2,
-        "engine": "Rule-Based URL Heuristic Analyzer"
+        "phase": 3,
+        "engine": "URL Heuristic & Typosquatting Analysis Engine"
     }
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)

@@ -1,14 +1,19 @@
 """
-ThreatLens - URL Heuristic Analysis Engine (Phase 2)
+ThreatLens - URL Heuristic & Domain Analysis Engine (Phase 2 & Phase 3)
 
 This module implements deterministic, rule-based heuristics to inspect URLs
-for suspicious traits without external API dependencies or machine learning.
+for suspicious traits and typosquatting against trusted domains.
 """
 
 import re
 import ipaddress
 from urllib.parse import urlparse, unquote
 from typing import Dict, List, Any, Tuple
+
+try:
+    from backend.typosquat import analyze_typosquatting
+except ImportError:
+    from typosquat import analyze_typosquatting
 
 
 # Configurable list of keywords commonly found in phishing lures and auth theft
@@ -125,7 +130,7 @@ def check_unusual_subdomain(hostname: str, is_ip: bool) -> Tuple[bool, str]:
 def calculate_risk(signals: Dict[str, bool], reasons: List[str]) -> Tuple[int, str]:
     """
     Calculates deterministic risk score (0 - 100) and assigns risk level.
-    Scoring Weights:
+    Scoring Weights (Phase 2):
       - ip_based:            +30 points
       - unusual_port:        +20 points
       - suspicious_keywords: +20 points
@@ -162,8 +167,7 @@ def calculate_risk(signals: Dict[str, bool], reasons: List[str]) -> Tuple[int, s
 
 def analyze_url_heuristics(raw_url: str) -> Dict[str, Any]:
     """
-    Main analysis entry point.
-    Runs all 5 heuristics and returns the standardized Phase 2 response dict.
+    Main analysis entry point combining Phase 2 URL heuristics and Phase 3 typosquatting detection.
     """
     parsed, normalized_url = validate_and_parse_url(raw_url)
     hostname = parsed.hostname or ""
@@ -207,13 +211,19 @@ def analyze_url_heuristics(raw_url: str) -> Dict[str, Any]:
         signals["unusual_subdomain"] = True
         reasons.append(sub_reason)
 
-    # Calculate deterministic score
+    # Calculate deterministic Phase 2 score
     risk_score, risk_level = calculate_risk(signals, reasons)
+
+    # 6. Phase 3: Domain & Typosquatting / Impersonation Analysis
+    typosquatting = analyze_typosquatting(hostname)
+    if typosquatting.get("detected") and typosquatting.get("reason"):
+        reasons.append(typosquatting["reason"])
 
     return {
         "url": raw_url.strip(),
         "risk_score": risk_score,
         "risk_level": risk_level,
         "reasons": reasons,
-        "signals": signals
+        "signals": signals,
+        "typosquatting": typosquatting
     }
