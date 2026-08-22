@@ -1,48 +1,47 @@
 """
-ThreatLens - URL Analysis Engine (Phases 1, 2, 3 & Phase 4 Step 1)
+ThreatLens - URL Analysis Engine
+(Phases 1, 2, 3 & Phase 4 Steps 1, 2, 3, 4)
 
-This module coordinates:
-  - Phase 2: URL rule-based heuristics & deterministic risk scoring
-  - Phase 3: Levenshtein distance & domain typosquatting detection
-  - Phase 4 (Step 1): DNS resolution and IP address discovery
+Pipeline:
+  Phase 2  — URL rule-based heuristics & deterministic risk scoring
+  Phase 3  — Levenshtein distance & domain typosquatting detection
+  Phase 4/1 — DNS resolution and IP address discovery
+  Phase 4/2 — HTTP/HTTPS status code & response header inspection
+  Phase 4/3 — HTTP redirect chain analysis
+  Phase 4/4 — TLS/SSL certificate inspection
 """
 
 import re
 import ipaddress
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse
 from typing import Dict, List, Any, Tuple
 
 try:
-    from backend.typosquat import analyze_typosquatting
-    from backend.dns_analyzer import resolve_dns
+    from backend.typosquat         import analyze_typosquatting
+    from backend.dns_analyzer      import resolve_dns
+    from backend.http_analyzer     import analyze_http
+    from backend.redirect_analyzer import analyze_redirects
+    from backend.tls_analyzer      import analyze_tls
 except ImportError:
-    from typosquat import analyze_typosquatting
-    from dns_analyzer import resolve_dns
+    from typosquat         import analyze_typosquatting
+    from dns_analyzer      import resolve_dns
+    from http_analyzer     import analyze_http
+    from redirect_analyzer import analyze_redirects
+    from tls_analyzer      import analyze_tls
 
 
-# Configurable list of keywords commonly found in phishing lures and auth theft
+# ── Configurable keyword list (Phase 2) ──────────────────────────────────────
 SUSPICIOUS_KEYWORDS = [
-    "login",
-    "signin",
-    "verify",
-    "verification",
-    "secure",
-    "account",
-    "update",
-    "password",
-    "confirm",
-    "banking",
-    "wallet",
-    "auth",
-    "security",
-    "credential",
-    "invoice",
-    "billing"
+    "login", "signin", "verify", "verification",
+    "secure", "account", "update", "password", "confirm",
+    "banking", "wallet", "auth", "security", "credential",
+    "invoice", "billing"
 ]
 
-# Standard web ports that do not indicate port manipulation
 STANDARD_PORTS = {80, 443}
 
+
+# ── URL validation ────────────────────────────────────────────────────────────
 
 def validate_and_parse_url(raw_url: str):
     """
@@ -53,17 +52,17 @@ def validate_and_parse_url(raw_url: str):
     if not trimmed:
         raise ValueError("URL cannot be empty")
 
-    # If scheme is missing, prefix with https:// to allow parsing
     if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", trimmed):
         trimmed = f"https://{trimmed}"
 
     parsed = urlparse(trimmed)
 
-    # Validate scheme
     if parsed.scheme.lower() not in {"http", "https"}:
-        raise ValueError(f"Unsupported URL scheme '{parsed.scheme}'. Only http:// and https:// are supported.")
+        raise ValueError(
+            f"Unsupported URL scheme '{parsed.scheme}'. "
+            "Only http:// and https:// are supported."
+        )
 
-    # Validate hostname
     hostname = parsed.hostname
     if not hostname:
         raise ValueError("Malformed URL: could not extract a valid hostname.")
@@ -71,11 +70,9 @@ def validate_and_parse_url(raw_url: str):
     return parsed, trimmed
 
 
+# ── Phase 2 heuristics ────────────────────────────────────────────────────────
+
 def check_ip_based(hostname: str) -> Tuple[bool, str]:
-    """
-    Heuristic 1: Detect whether the hostname is a direct IPv4 or IPv6 address.
-    Phishing URLs frequently use raw IPs to bypass domain reputation filters.
-    """
     try:
         ipaddress.ip_address(hostname)
         return True, f"Hostname is a raw IP address ({hostname}) instead of a registered domain"
@@ -84,10 +81,6 @@ def check_ip_based(hostname: str) -> Tuple[bool, str]:
 
 
 def check_unusual_port(parsed_url) -> Tuple[bool, str]:
-    """
-    Heuristic 2: Detect non-standard network ports.
-    Standard web traffic uses port 80 (HTTP) or 443 (HTTPS).
-    """
     port = parsed_url.port
     if port is not None and port not in STANDARD_PORTS:
         return True, f"URL specifies a non-standard network port ({port})"
@@ -95,146 +88,133 @@ def check_unusual_port(parsed_url) -> Tuple[bool, str]:
 
 
 def check_suspicious_keywords(url_string: str) -> Tuple[bool, List[str], str]:
-    """
-    Heuristic 3: Detect sensitive authentication/banking keywords in path, query, or subdomains.
-    """
     url_lower = url_string.lower()
     matched = [kw for kw in SUSPICIOUS_KEYWORDS if kw in url_lower]
-
     if matched:
         return True, matched, f"Contains sensitive auth/security keywords: {', '.join(matched)}"
     return False, [], ""
 
 
 def check_encoded_characters(raw_url: str) -> Tuple[bool, str]:
-    """
-    Heuristic 4: Detect percent-encoded characters (e.g., %20, %2F, %3D) used to conceal malicious payload targets.
-    """
     if re.search(r"%[0-9a-fA-F]{2}", raw_url):
         return True, "URL contains percent-encoded / obfuscated characters"
     return False, ""
 
 
 def check_unusual_subdomain(hostname: str, is_ip: bool) -> Tuple[bool, str]:
-    """
-    Heuristic 5: Detect unusually deep or complex subdomain hierarchies.
-    e.g., a.b.c.d.example.com or fake-login.portal.target.xyz
-    """
     if is_ip:
         return False, ""
-
     parts = [p for p in hostname.split(".") if p]
-    # Standard domains: example.com (2 parts), www.example.com (3 parts)
-    # Deep subdomains: 4 or more parts (e.g. login.secure.verify.example.com)
     if len(parts) >= 4:
         return True, f"Unusually deep subdomain hierarchy ({len(parts)} levels in {hostname})"
     return False, ""
 
 
-def calculate_risk(signals: Dict[str, bool], reasons: List[str]) -> Tuple[int, str]:
+# ── Risk scoring ──────────────────────────────────────────────────────────────
+
+def calculate_risk(signals: Dict[str, bool], _reasons: List[str]) -> Tuple[int, str]:
     """
-    Calculates deterministic risk score (0 - 100) and assigns risk level.
-    Scoring Weights (Phase 2):
-      - ip_based:            +30 points
-      - unusual_port:        +20 points
-      - suspicious_keywords: +20 points
-      - unusual_subdomain:   +20 points
-      - encoded_characters:  +15 points
+    Deterministic Phase 2 risk score — unchanged.
+    Weights: ip_based +30, unusual_port +20, suspicious_keywords +20,
+             unusual_subdomain +20, encoded_characters +15.
     """
     score = 0
-    if signals.get("ip_based"):
-        score += 30
-    if signals.get("unusual_port"):
-        score += 20
-    if signals.get("suspicious_keywords"):
-        score += 20
-    if signals.get("unusual_subdomain"):
-        score += 20
-    if signals.get("encoded_characters"):
-        score += 15
-
-    # Cap score at 100
+    if signals.get("ip_based"):            score += 30
+    if signals.get("unusual_port"):        score += 20
+    if signals.get("suspicious_keywords"): score += 20
+    if signals.get("unusual_subdomain"):   score += 20
+    if signals.get("encoded_characters"):  score += 15
     score = min(score, 100)
 
-    # Determine risk level
-    if score >= 80:
-        level = "CRITICAL"
-    elif score >= 60:
-        level = "HIGH"
-    elif score >= 30:
-        level = "MEDIUM"
-    else:
-        level = "LOW"
+    if score >= 80:   level = "CRITICAL"
+    elif score >= 60: level = "HIGH"
+    elif score >= 30: level = "MEDIUM"
+    else:             level = "LOW"
 
     return score, level
 
 
+# ── Main analysis entry-point ─────────────────────────────────────────────────
+
 def analyze_url_heuristics(raw_url: str) -> Dict[str, Any]:
     """
-    Main analysis entry point combining:
-      - Phase 2: URL heuristics
-      - Phase 3: Typosquatting / brand impersonation detection
-      - Phase 4 Step 1: DNS IP resolution
+    Full analysis pipeline:
+      Phase 2 heuristics → Phase 3 typosquatting → DNS → HTTP → Redirects → TLS
     """
     parsed, normalized_url = validate_and_parse_url(raw_url)
     hostname = parsed.hostname or ""
+    scheme   = parsed.scheme.lower()
+    port     = parsed.port or (443 if scheme == "https" else 80)
 
-    signals = {
+    signals: Dict[str, bool] = {
         "ip_based": False,
         "unusual_port": False,
         "suspicious_keywords": False,
         "encoded_characters": False,
-        "unusual_subdomain": False
+        "unusual_subdomain": False,
     }
     reasons: List[str] = []
 
-    # 1. IP Check
+    # Phase 2 — heuristics
     is_ip, ip_reason = check_ip_based(hostname)
     if is_ip:
         signals["ip_based"] = True
         reasons.append(ip_reason)
 
-    # 2. Port Check
     is_unusual_port, port_reason = check_unusual_port(parsed)
     if is_unusual_port:
         signals["unusual_port"] = True
         reasons.append(port_reason)
 
-    # 3. Suspicious Keywords Check
-    has_keywords, _, kw_reason = check_suspicious_keywords(normalized_url)
-    if has_keywords:
+    has_kw, _, kw_reason = check_suspicious_keywords(normalized_url)
+    if has_kw:
         signals["suspicious_keywords"] = True
         reasons.append(kw_reason)
 
-    # 4. Encoded Characters Check
     has_encoded, enc_reason = check_encoded_characters(raw_url)
     if has_encoded:
         signals["encoded_characters"] = True
         reasons.append(enc_reason)
 
-    # 5. Unusual Subdomain Check
     has_deep_sub, sub_reason = check_unusual_subdomain(hostname, is_ip)
     if has_deep_sub:
         signals["unusual_subdomain"] = True
         reasons.append(sub_reason)
 
-    # Calculate deterministic Phase 2 score
+    # Phase 2 — deterministic risk score (UNCHANGED by later phases)
     risk_score, risk_level = calculate_risk(signals, reasons)
 
-    # 6. Phase 3: Domain & Typosquatting / Impersonation Analysis
+    # Phase 3 — typosquatting
     typosquatting = analyze_typosquatting(hostname)
     if typosquatting.get("detected") and typosquatting.get("reason"):
         reasons.append(typosquatting["reason"])
 
-    # 7. Phase 4 (Step 1): DNS Resolution
+    # Phase 4/1 — DNS
     dns_result = resolve_dns(hostname)
 
+    # Phase 4/2 — HTTP/HTTPS headers
+    http_result = analyze_http(normalized_url)
+
+    # Phase 4/3 — Redirect chain
+    redirect_result = analyze_redirects(normalized_url)
+
+    # Phase 4/4 — TLS certificate
+    tls_port   = parsed.port if parsed.port else DEFAULT_TLS_PORT_FOR(scheme)
+    tls_result = analyze_tls(scheme, hostname, port=tls_port)
+
     return {
-        "url": raw_url.strip(),
-        "risk_score": risk_score,
-        "risk_level": risk_level,
-        "reasons": reasons,
-        "signals": signals,
+        "url":           raw_url.strip(),
+        "risk_score":    risk_score,
+        "risk_level":    risk_level,
+        "reasons":       reasons,
+        "signals":       signals,
         "typosquatting": typosquatting,
-        "dns": dns_result
+        "dns":           dns_result,
+        "http":          http_result,
+        "redirects":     redirect_result,
+        "tls":           tls_result,
     }
+
+
+def DEFAULT_TLS_PORT_FOR(scheme: str) -> int:
+    return 443 if scheme == "https" else 80

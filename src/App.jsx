@@ -15,41 +15,43 @@ import {
   Check,
   XCircle,
   Network,
-  Cpu
+  Activity,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000';
 
 const TEST_PRESETS = [
   {
-    label: '1. Valid Domain (Example)',
+    label: '1. Reachable (example.com)',
     url: 'https://example.com',
-    description: 'Expected: DNS Resolved (IPv4/IPv6)'
+    description: 'Expected: HTTP 200 OK + DNS Resolved'
   },
   {
-    label: '2. Valid Domain (Google)',
+    label: '2. Reachable (google.com)',
     url: 'https://google.com/login',
-    description: 'Expected: DNS Resolved + Keyword flag'
+    description: 'Expected: HTTP 200 OK + Keyword flag'
   },
   {
-    label: '3. Unresolvable / Invalid Domain',
+    label: '3. Unreachable Target',
     url: 'https://this-domain-definitely-does-not-exist-123456789.invalid',
-    description: 'Expected: DNS Resolution Failed (handled gracefully)'
+    description: 'Expected: HTTP Connection Failed (handled gracefully)'
   },
   {
-    label: '4. Typosquat (micros0ft)',
+    label: '4. Typosquat (micros0ft.com)',
     url: 'https://micros0ft.com',
-    description: 'Expected: Typosquat detected + DNS resolution'
+    description: 'Expected: Typosquat detected + HTTP/DNS'
   },
   {
-    label: '5. IP Address + Login',
-    url: 'http://192.168.1.10/login',
-    description: 'Expected: IP-based signal + DNS self-resolution'
-  },
-  {
-    label: '6. Combosquat (microsoft-login)',
+    label: '5. Combosquat (microsoft-login)',
     url: 'https://microsoft-login.com',
     description: 'Expected: Impersonation detected'
+  },
+  {
+    label: '6. Raw IP + Port 8080',
+    url: 'https://example.com:8080/login',
+    description: 'Expected: Unusual port signal'
   }
 ];
 
@@ -60,6 +62,7 @@ export function App() {
   const [error, setError] = useState(null);
   const [backendOnline, setBackendOnline] = useState(null);
   const [showRawJson, setShowRawJson] = useState(false);
+  const [showAllHeaders, setShowAllHeaders] = useState(false);
 
   useEffect(() => {
     checkBackendHealth();
@@ -172,11 +175,11 @@ export function App() {
                   THREAT<span className="text-cyan-400">LENS</span>
                 </span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
-                  PHASE 4.1: DNS
+                  PHASE 4.2: HTTP & DNS
                 </span>
               </div>
               <p className="text-[10px] uppercase font-mono tracking-widest text-slate-400">
-                URL Heuristics, Typosquatting & DNS Analysis Engine
+                URL Heuristics, Typosquatting, DNS & HTTP Response Engine
               </p>
             </div>
           </div>
@@ -221,14 +224,14 @@ export function App() {
         {/* Title */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono mb-3">
-            <Network className="h-3.5 w-3.5 text-cyan-400" />
-            Phase 4 — Step 1: DNS Resolution & Network Telemetry
+            <Activity className="h-3.5 w-3.5 text-cyan-400" />
+            Phase 4 — Step 2: HTTP/HTTPS Status & Headers Analysis
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Analyze URL for DNS, Typosquatting & Risk Signals
+            Analyze URL for HTTP, DNS & Risk Signals
           </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-            Combines rule-based URL heuristics, brand typosquatting detection, and live DNS IP address resolution.
+            Inspects HTTP response status, headers, DNS resolution, brand typosquatting, and heuristic indicators.
           </p>
         </div>
 
@@ -259,7 +262,7 @@ export function App() {
             <div className="pt-2">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
-                  Test Presets (DNS & Impersonation):
+                  Test Presets (HTTP & DNS):
                 </span>
                 <span className="text-[10px] font-mono text-cyan-400">
                   Click to auto-fill
@@ -297,12 +300,12 @@ export function App() {
                 {loading ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
-                    Performing DNS Lookup & Analysis...
+                    Probing HTTP, DNS & Heuristics...
                   </>
                 ) : (
                   <>
                     <Search className="h-4 w-4" />
-                    Analyze URL & DNS
+                    Analyze URL, HTTP & DNS
                   </>
                 )}
               </button>
@@ -355,6 +358,84 @@ export function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Phase 4 Step 2: HTTP/HTTPS Response Telemetry Card */}
+              {result.http && (
+                <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-cyan-400" />
+                      <h4 className="font-bold text-white uppercase tracking-wider text-xs">
+                        HTTP / HTTPS Response
+                      </h4>
+                    </div>
+                    {result.http.status_code !== null && result.http.status_code !== undefined ? (
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold border flex items-center gap-1 ${
+                          result.http.status_code >= 200 && result.http.status_code < 300
+                            ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30'
+                            : result.http.status_code >= 300 && result.http.status_code < 400
+                            ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/30'
+                            : 'bg-amber-950/60 text-amber-300 border-amber-500/30'
+                        }`}
+                      >
+                        <Check className="h-3 w-3" /> HTTP {result.http.status_code}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/60 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                        <XCircle className="h-3 w-3" /> CONNECTION FAILED
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                      <span className="text-slate-500 text-[10px] block">Final Destination URL</span>
+                      <span className="text-slate-200 font-semibold truncate block mt-0.5">
+                        {result.http.final_url || result.url}
+                      </span>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                      <span className="text-slate-500 text-[10px] block">Server / Content-Type</span>
+                      <span className="text-cyan-300 font-semibold truncate block mt-0.5">
+                        {result.http.headers?.['server'] || 'Unknown Server'} • {result.http.headers?.['content-type']?.split(';')[0] || 'Unknown Type'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Headers Dropdown */}
+                  {result.http.headers && Object.keys(result.http.headers).length > 0 && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllHeaders(!showAllHeaders)}
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-400 hover:text-cyan-300 transition-colors"
+                      >
+                        {showAllHeaders ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        {showAllHeaders ? 'Hide Response Headers' : `View All Response Headers (${Object.keys(result.http.headers).length})`}
+                      </button>
+
+                      {showAllHeaders && (
+                        <div className="mt-2 p-2.5 rounded-lg bg-slate-900/80 border border-slate-800 max-h-48 overflow-y-auto space-y-1 text-[10px]">
+                          {Object.entries(result.http.headers).map(([k, v]) => (
+                            <div key={k} className="flex flex-col sm:flex-row sm:justify-between gap-1 py-0.5 border-b border-slate-800/40">
+                              <span className="text-cyan-400 font-semibold">{k}:</span>
+                              <span className="text-slate-300 break-all">{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {result.http.error && (
+                    <div className="p-2 rounded bg-rose-950/30 border border-rose-500/30 text-rose-300 text-[11px]">
+                      {result.http.error}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Phase 4 Step 1: DNS Resolution Telemetry Card */}
               {result.dns && (
@@ -618,7 +699,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 py-4 px-4 text-center text-xs font-mono text-slate-600">
-        ThreatLens Platform • Phase 4 (Step 1): DNS Resolution & Heuristics • React + FastAPI
+        ThreatLens Platform • Phase 4 (Step 2): HTTP & DNS Telemetry • React + FastAPI
       </footer>
     </div>
   );
