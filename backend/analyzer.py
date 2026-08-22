@@ -1,8 +1,10 @@
 """
-ThreatLens - URL Heuristic & Domain Analysis Engine (Phase 2 & Phase 3)
+ThreatLens - URL Analysis Engine (Phases 1, 2, 3 & Phase 4 Step 1)
 
-This module implements deterministic, rule-based heuristics to inspect URLs
-for suspicious traits and typosquatting against trusted domains.
+This module coordinates:
+  - Phase 2: URL rule-based heuristics & deterministic risk scoring
+  - Phase 3: Levenshtein distance & domain typosquatting detection
+  - Phase 4 (Step 1): DNS resolution and IP address discovery
 """
 
 import re
@@ -12,8 +14,10 @@ from typing import Dict, List, Any, Tuple
 
 try:
     from backend.typosquat import analyze_typosquatting
+    from backend.dns_analyzer import resolve_dns
 except ImportError:
     from typosquat import analyze_typosquatting
+    from dns_analyzer import resolve_dns
 
 
 # Configurable list of keywords commonly found in phishing lures and auth theft
@@ -167,7 +171,10 @@ def calculate_risk(signals: Dict[str, bool], reasons: List[str]) -> Tuple[int, s
 
 def analyze_url_heuristics(raw_url: str) -> Dict[str, Any]:
     """
-    Main analysis entry point combining Phase 2 URL heuristics and Phase 3 typosquatting detection.
+    Main analysis entry point combining:
+      - Phase 2: URL heuristics
+      - Phase 3: Typosquatting / brand impersonation detection
+      - Phase 4 Step 1: DNS IP resolution
     """
     parsed, normalized_url = validate_and_parse_url(raw_url)
     hostname = parsed.hostname or ""
@@ -219,11 +226,15 @@ def analyze_url_heuristics(raw_url: str) -> Dict[str, Any]:
     if typosquatting.get("detected") and typosquatting.get("reason"):
         reasons.append(typosquatting["reason"])
 
+    # 7. Phase 4 (Step 1): DNS Resolution
+    dns_result = resolve_dns(hostname)
+
     return {
         "url": raw_url.strip(),
         "risk_score": risk_score,
         "risk_level": risk_level,
         "reasons": reasons,
         "signals": signals,
-        "typosquatting": typosquatting
+        "typosquatting": typosquatting,
+        "dns": dns_result
     }

@@ -10,8 +10,8 @@ except ImportError:
 
 app = FastAPI(
     title="ThreatLens API",
-    version="3.0.0",
-    description="ThreatLens Phishing & Malicious Link Risk Analysis API - Phase 3 Domain Typosquatting Engine"
+    version="4.1.0",
+    description="ThreatLens Phishing & Malicious Link Risk Analysis API - Phase 4 Step 1 DNS Analyzer"
 )
 
 # Enable CORS for React frontend
@@ -39,6 +39,12 @@ class TyposquattingSchema(BaseModel):
     similarity: float = 0.0
     reason: Optional[str] = None
 
+class DnsSchema(BaseModel):
+    hostname: str
+    resolved: bool
+    ip_addresses: List[str] = []
+    error: Optional[str] = None
+
 class AnalyzeResponse(BaseModel):
     url: str
     risk_score: int
@@ -46,14 +52,15 @@ class AnalyzeResponse(BaseModel):
     reasons: List[str]
     signals: SignalsSchema
     typosquatting: TyposquattingSchema
+    dns: DnsSchema
 
 @app.get("/")
 def health_check():
     return {
         "service": "ThreatLens API",
         "status": "online",
-        "phase": 3,
-        "engine": "URL Heuristic & Typosquatting Analysis Engine"
+        "phase": "4.1",
+        "engine": "URL Heuristics, Typosquatting & DNS Analysis Engine"
     }
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)

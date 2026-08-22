@@ -14,47 +14,47 @@ import {
   Zap,
   Check,
   XCircle,
-  Copy,
-  Target
+  Network,
+  Cpu
 } from 'lucide-react';
 
 const API_BASE_URL = 'http://localhost:8000';
 
 const TEST_PRESETS = [
   {
-    label: '1. Exact Trusted (Microsoft)',
-    url: 'https://microsoft.com',
-    description: 'Expected: Clean / Not Flagged (Legitimate)'
-  },
-  {
-    label: '2. Combosquat (microsoft-login)',
-    url: 'https://microsoft-login.com',
-    description: 'Expected: Impersonation of microsoft.com'
-  },
-  {
-    label: '3. Typosquat (micros0ft)',
-    url: 'https://micros0ft.com',
-    description: 'Expected: Typosquat of microsoft.com'
-  },
-  {
-    label: '4. Exact Trusted (Google)',
-    url: 'https://google.com',
-    description: 'Expected: Clean / Not Flagged (Legitimate)'
-  },
-  {
-    label: '5. Typosquat (paypa1)',
-    url: 'https://paypa1.com',
-    description: 'Expected: Typosquat of paypal.com'
-  },
-  {
-    label: '6. Unrelated Benign (example)',
+    label: '1. Valid Domain (Example)',
     url: 'https://example.com',
-    description: 'Expected: Clean / No Impersonation'
+    description: 'Expected: DNS Resolved (IPv4/IPv6)'
+  },
+  {
+    label: '2. Valid Domain (Google)',
+    url: 'https://google.com/login',
+    description: 'Expected: DNS Resolved + Keyword flag'
+  },
+  {
+    label: '3. Unresolvable / Invalid Domain',
+    url: 'https://this-domain-definitely-does-not-exist-123456789.invalid',
+    description: 'Expected: DNS Resolution Failed (handled gracefully)'
+  },
+  {
+    label: '4. Typosquat (micros0ft)',
+    url: 'https://micros0ft.com',
+    description: 'Expected: Typosquat detected + DNS resolution'
+  },
+  {
+    label: '5. IP Address + Login',
+    url: 'http://192.168.1.10/login',
+    description: 'Expected: IP-based signal + DNS self-resolution'
+  },
+  {
+    label: '6. Combosquat (microsoft-login)',
+    url: 'https://microsoft-login.com',
+    description: 'Expected: Impersonation detected'
   }
 ];
 
 export function App() {
-  const [url, setUrl] = useState('https://micros0ft.com');
+  const [url, setUrl] = useState('https://example.com');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -172,11 +172,11 @@ export function App() {
                   THREAT<span className="text-cyan-400">LENS</span>
                 </span>
                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
-                  PHASE 3: TYPOSQUATTING
+                  PHASE 4.1: DNS
                 </span>
               </div>
               <p className="text-[10px] uppercase font-mono tracking-widest text-slate-400">
-                Domain Similarity & Brand Impersonation Engine
+                URL Heuristics, Typosquatting & DNS Analysis Engine
               </p>
             </div>
           </div>
@@ -221,14 +221,14 @@ export function App() {
         {/* Title */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-mono mb-3">
-            <Zap className="h-3.5 w-3.5 text-cyan-400" />
-            Phase 3: Levenshtein Distance & Brand Impersonation Analyzer
+            <Network className="h-3.5 w-3.5 text-cyan-400" />
+            Phase 4 — Step 1: DNS Resolution & Network Telemetry
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Analyze URL for Typosquatting & Phishing Risk
+            Analyze URL for DNS, Typosquatting & Risk Signals
           </h1>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-            Detects lookalike domains mimicking trusted brands (Microsoft, Google, PayPal, Amazon, Apple) alongside URL heuristics.
+            Combines rule-based URL heuristics, brand typosquatting detection, and live DNS IP address resolution.
           </p>
         </div>
 
@@ -259,7 +259,7 @@ export function App() {
             <div className="pt-2">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400 font-semibold">
-                  Phase 3 Test Presets:
+                  Test Presets (DNS & Impersonation):
                 </span>
                 <span className="text-[10px] font-mono text-cyan-400">
                   Click to auto-fill
@@ -297,12 +297,12 @@ export function App() {
                 {loading ? (
                   <>
                     <RefreshCw className="h-4 w-4 animate-spin" />
-                    Executing Heuristics & Typosquatting Analysis...
+                    Performing DNS Lookup & Analysis...
                   </>
                 ) : (
                   <>
                     <Search className="h-4 w-4" />
-                    Analyze URL & Domain
+                    Analyze URL & DNS
                   </>
                 )}
               </button>
@@ -355,6 +355,58 @@ export function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Phase 4 Step 1: DNS Resolution Telemetry Card */}
+              {result.dns && (
+                <div className="p-4 rounded-xl bg-slate-950/90 border border-slate-800 space-y-3 font-mono text-xs">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Network className="h-4 w-4 text-cyan-400" />
+                      <h4 className="font-bold text-white uppercase tracking-wider text-xs">
+                        DNS Network Resolution
+                      </h4>
+                    </div>
+                    {result.dns.resolved ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                        <Check className="h-3 w-3" /> RESOLVED ({result.dns.ip_addresses?.length || 0} IPs)
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-950/60 text-rose-300 border border-rose-500/30 flex items-center gap-1">
+                        <XCircle className="h-3 w-3" /> RESOLUTION FAILED
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                      <span className="text-slate-500 text-[10px] block">Target Hostname</span>
+                      <span className="text-slate-200 font-semibold truncate block mt-0.5">
+                        {result.dns.hostname || 'N/A'}
+                      </span>
+                    </div>
+
+                    <div className="sm:col-span-2 p-2.5 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                      <span className="text-slate-500 text-[10px] block">Discovered IP Addresses</span>
+                      {result.dns.resolved && result.dns.ip_addresses?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {result.dns.ip_addresses.map((ip, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700 text-[11px]"
+                            >
+                              {ip}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-rose-400 text-[11px] mt-0.5 block">
+                          {result.dns.error || 'No IP addresses could be resolved'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Phase 3: Typosquatting / Brand Impersonation Banner */}
               <div
@@ -566,7 +618,7 @@ export function App() {
 
       {/* Footer */}
       <footer className="border-t border-slate-900 py-4 px-4 text-center text-xs font-mono text-slate-600">
-        ThreatLens Platform • Phase 3 Typosquatting & Heuristics • React + FastAPI
+        ThreatLens Platform • Phase 4 (Step 1): DNS Resolution & Heuristics • React + FastAPI
       </footer>
     </div>
   );
