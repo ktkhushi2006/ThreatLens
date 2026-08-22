@@ -92,6 +92,22 @@ class TlsSchema(BaseModel):
     error: Optional[str] = None
 
 
+class TriggeredRuleSchema(BaseModel):
+    rule_name: str
+    signal_key: str
+    score: int
+    category: str = ""
+    description: str = ""
+
+
+class RiskSchema(BaseModel):
+    score: int
+    level: str
+    triggered_rules: List[TriggeredRuleSchema] = []
+    db_available: bool
+    explanation: str = ""
+
+
 # ── Response ──────────────────────────────────────────────────────────────────
 
 class AnalyzeResponse(BaseModel):
@@ -105,6 +121,7 @@ class AnalyzeResponse(BaseModel):
     http: HttpSchema
     redirects: RedirectSchema
     tls: TlsSchema
+    risk: RiskSchema
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────

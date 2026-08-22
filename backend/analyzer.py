@@ -22,12 +22,14 @@ try:
     from backend.http_analyzer     import analyze_http
     from backend.redirect_analyzer import analyze_redirects
     from backend.tls_analyzer      import analyze_tls
+    from backend.risk_engine       import compute_risk
 except ImportError:
     from typosquat         import analyze_typosquatting
     from dns_analyzer      import resolve_dns
     from http_analyzer     import analyze_http
     from redirect_analyzer import analyze_redirects
     from tls_analyzer      import analyze_tls
+    from risk_engine       import compute_risk
 
 
 # ── Configurable keyword list (Phase 2) ──────────────────────────────────────
@@ -202,7 +204,7 @@ def analyze_url_heuristics(raw_url: str) -> Dict[str, Any]:
     tls_port   = parsed.port if parsed.port else DEFAULT_TLS_PORT_FOR(scheme)
     tls_result = analyze_tls(scheme, hostname, port=tls_port)
 
-    return {
+    result = {
         "url":           raw_url.strip(),
         "risk_score":    risk_score,
         "risk_level":    risk_level,
@@ -214,6 +216,21 @@ def analyze_url_heuristics(raw_url: str) -> Dict[str, Any]:
         "redirects":     redirect_result,
         "tls":           tls_result,
     }
+
+    # Phase 5 — Data-Driven Risk Engine
+    # compute_risk reads all sub-results, queries PostgreSQL for active rules,
+    # and returns an enriched risk score. Falls back gracefully if DB is down.
+    risk_data = compute_risk(result)
+    result["risk"] = risk_data
+
+    # Overwrite top-level fields so existing frontend and regression tests
+    # automatically use the new Phase 5 data-driven score without breaking.
+    result["risk_score"] = risk_data["score"]
+    result["risk_level"] = risk_data["level"]
+    if risk_data.get("triggered_rules"):
+        result["reasons"] = [r["description"] for r in risk_data["triggered_rules"] if r.get("description")]
+
+    return result
 
 
 def DEFAULT_TLS_PORT_FOR(scheme: str) -> int:
