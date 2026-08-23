@@ -23,65 +23,56 @@ export function Sidebar({ isOpen, onClose }) {
 
   const navItems = [
     {
-      label: 'Main Dashboard',
-      path: '/',
+      label: 'Dashboard',
+      path: '/dashboard',
       icon: LayoutDashboard,
       badge: 'LIVE',
       badgeColor: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
     },
     {
-      label: 'URL Analyzer',
+      label: 'URL Scan',
       path: '/analyze',
       icon: Globe,
-      step: 'Step 2'
     },
     {
       label: 'Security Report',
       path: '/report',
       icon: ShieldAlert,
-      step: 'Step 3'
     },
     {
       label: 'Technical Analysis',
       path: '/technical',
       icon: Network,
-      step: 'Step 4'
     },
     {
       label: 'QR Scanner',
       path: '/qr-scanner',
       icon: QrCode,
-      step: 'Step 5'
     },
     {
       label: 'Email Analyzer',
       path: '/email-analyzer',
       icon: MailWarning,
-      step: 'Step 6'
     },
     {
       label: 'Analysis History',
       path: '/history',
       icon: History,
-      step: 'Step 7'
     },
     {
       label: 'Analytics',
       path: '/analytics',
       icon: BarChart3,
-      step: 'Step 8'
     },
     {
       label: 'Attack Replay',
       path: '/attack-replay',
       icon: PlaySquare,
-      step: 'Step 9'
     },
     {
       label: 'Settings',
       path: '/settings',
       icon: Settings,
-      step: 'Step 10'
     }
   ];
 
@@ -140,7 +131,8 @@ export function Sidebar({ isOpen, onClose }) {
 
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname === item.path || 
+              (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
             return (
               <NavLink
@@ -216,9 +208,9 @@ export function Sidebar({ isOpen, onClose }) {
           <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-500 font-mono">
             <span className="flex items-center gap-1">
               <Terminal className="h-3 w-3 text-cyan-400" />
-              Phase 1 UI Mode
+              Phase 6 Dashboard
             </span>
-            <span>v1.0.0</span>
+            <span>v6.0.0</span>
           </div>
         </div>
       </aside>

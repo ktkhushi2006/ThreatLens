@@ -49,6 +49,7 @@ export function Header({ onMenuClick }) {
   const getPageTitle = (pathname) => {
     switch (pathname) {
       case '/':
+      case '/dashboard':
         return { title: 'Security Operations Dashboard', subtitle: 'Real-time telemetry and threat analysis overview' };
       case '/analyze':
         return { title: 'URL Deep Risk Analyzer', subtitle: 'Scan links for phishing heuristics, cloaking, and malware' };
