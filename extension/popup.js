@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:8000/api/analyze';
+const API_URL = 'https://threatlens-95ww.onrender.com/api/analyze';
 const WEB_APP_URL = 'http://localhost:3000/report';
 
 let currentTabUrl = '';
