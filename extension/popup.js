@@ -1,5 +1,5 @@
 const API_URL = 'https://threatlens-95ww.onrender.com/api/analyze';
-const WEB_APP_URL = 'http://localhost:3000/report';
+const WEB_APP_URL = 'https://threat-lens-sepia.vercel.app/report';
 
 let currentTabUrl = '';
 let currentTabTitle = '';
