@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useAnalysis } from '../context/AnalysisContext';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function getRiskColors(level) {
   switch (level) {

@@ -47,7 +47,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [settings, setSettings] = useState({
     displayName: 'SOC Analyst',
-    apiEndpoint: 'http://localhost:8000',
+   apiEndpoint: import.meta.env.VITE_API_URL || 'http://localhost:8000',
     autoRedirectReport: true,
     notifyHighRisk: true,
     notifyMediumRisk: false,
