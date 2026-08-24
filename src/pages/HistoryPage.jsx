@@ -23,9 +23,10 @@ function getTypeStyle(type) {
 
 export function HistoryPage() {
   const navigate = useNavigate();
-  const { history, clearHistory, analyzeUrl } = useAnalysis();
+  const { history, analyzeUrl, error } = useAnalysis();
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('ALL');
+  const [rescanningId, setRescanningId] = useState(null);
 
   const filtered = history.filter(item => {
     const matchSearch = !search || item.url?.toLowerCase().includes(search.toLowerCase());
@@ -34,9 +35,16 @@ export function HistoryPage() {
     return matchSearch && matchRisk;
   });
 
-  const handleRerun = async (url) => {
-    await analyzeUrl(url);
-    navigate('/analyze');
+  const handleRerun = async (url, id, source) => {
+    if (rescanningId !== null) return; // Prevent double clicks
+    setRescanningId(id);
+    
+    // Preserve the original source/type (EMAIL, QR, EXTENSION, URL, etc.).
+    // loadHistory is automatically called inside analyzeUrl after success.
+    await analyzeUrl(url, source || 'URL');
+    
+    // Don't navigate away; the history list auto-refreshes with the new entry.
+    setRescanningId(null);
   };
 
   return (
@@ -84,6 +92,12 @@ export function HistoryPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 font-mono text-xs text-rose-300">
+          <strong>Error: </strong> {error}
+        </div>
+      )}
+
       {/* Table */}
       {filtered.length > 0 ? (
         <div className="rounded-2xl bg-[#0D1322]/95 border border-slate-800/90 shadow-xl overflow-hidden">
@@ -110,10 +124,12 @@ export function HistoryPage() {
                   
                   const type = item.analysis_type || 'URL';
                   const { icon: TypeIcon, color: typeColor } = getTypeStyle(type);
+                  
+                  const isScanning = rescanningId === item.id;
 
                   return (
                     <tr
-                      key={i}
+                      key={item.id || i}
                       className="border-b border-slate-900/80 hover:bg-slate-900/40 transition-colors"
                     >
                       <td className="px-4 py-3">
@@ -157,10 +173,24 @@ export function HistoryPage() {
                       </td>
                       <td className="px-4 py-3">
                         <button
-                          onClick={() => handleRerun(item.url)}
-                          className="inline-flex items-center gap-1 text-[11px] font-mono text-cyan-400 hover:text-cyan-300 transition-colors"
+                          onClick={() => handleRerun(item.url, item.id, item.analysis_type)}
+                          disabled={rescanningId !== null}
+                          className={`inline-flex items-center gap-1 text-[11px] font-mono transition-colors ${
+                            rescanningId !== null
+                              ? 'text-slate-600 cursor-not-allowed'
+                              : 'text-cyan-400 hover:text-cyan-300'
+                          }`}
                         >
-                          Re-scan <ArrowRight className="h-3 w-3" />
+                          {isScanning ? (
+                            <>
+                              <div className="h-3 w-3 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
+                              Scanning...
+                            </>
+                          ) : (
+                            <>
+                              Re-scan <ArrowRight className="h-3 w-3" />
+                            </>
+                          )}
                         </button>
                       </td>
                     </tr>
