@@ -110,6 +110,7 @@ export function AnalysisProvider({ children }) {
         risk_score: rec.risk_score,
         risk_level: rec.risk_level,
         analysis_id: rec.id,
+        source: rec.analysis_type,
         analyzedAt: rec.created_at,
         reasons: (rec.signals || []).map(s => s.signal_name),
         signals: {

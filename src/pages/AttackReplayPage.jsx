@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Play, Shield, Mail, Link2, AlertTriangle, ArrowDown,
   Globe, Lock, CornerDownRight, Check, XCircle, Activity
@@ -49,9 +49,37 @@ function AttackNode({ icon: Icon, stage, title, description, status, riskLevel, 
 
 export function AttackReplayPage() {
   const navigate = useNavigate();
-  const { latestResult } = useAnalysis();
+  const { latestResult, loadAnalysisById, loading: contextLoading } = useAnalysis();
+  const [searchParams] = useSearchParams();
+  const [fetchLoading, setFetchLoading] = React.useState(false);
 
-  if (!latestResult) {
+  const analysisIdFromUrl = searchParams.get('id');
+
+  React.useEffect(() => {
+    if (analysisIdFromUrl) {
+      const idNum = parseInt(analysisIdFromUrl, 10);
+      if (!isNaN(idNum) && (!latestResult || latestResult.analysis_id !== idNum)) {
+        setFetchLoading(true);
+        loadAnalysisById(idNum).finally(() => setFetchLoading(false));
+      }
+    }
+  }, [analysisIdFromUrl, latestResult, loadAnalysisById]);
+
+  const result = latestResult;
+
+  if (fetchLoading || (contextLoading && !result)) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-slate-700 p-12 text-center space-y-3">
+          <div className="h-8 w-8 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin mx-auto" />
+          <p className="text-slate-300 font-mono text-sm font-semibold">Loading Analysis...</p>
+          <p className="text-slate-500 font-mono text-xs">Fetching report from backend.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!result) {
     return (
       <div className="space-y-4">
         <div>
@@ -81,25 +109,47 @@ export function AttackReplayPage() {
     );
   }
 
-  const result = latestResult;
+
   const riskLevel = result?.risk?.level ?? result?.risk_level ?? 'LOW';
   const riskScore = result?.risk?.score ?? result?.risk_score ?? 0;
   const triggeredRules = result?.risk?.triggered_rules || [];
 
   // Build attack chain from real analysis signals
   const stages = [];
+  let stageCounter = 1;
 
-  // Stage 1: Initial URL
+  // Stage 1: Initial Source (Email or Extension or URL)
+  if (result.source === 'EMAIL') {
+    stages.push({
+      icon: Mail,
+      stage: `Stage ${stageCounter++} — Initial Vector`,
+      title: 'Suspicious Email Encountered',
+      description: 'Extracted URL from email content.',
+      status: 'SOURCE',
+      riskLevel: 'MEDIUM',
+    });
+  } else if (result.source === 'EXTENSION') {
+    stages.push({
+      icon: Globe,
+      stage: `Stage ${stageCounter++} — Initial Vector`,
+      title: 'Browser Extension Scan',
+      description: 'URL intercepted directly from browser tab.',
+      status: 'SOURCE',
+      riskLevel: 'LOW',
+    });
+  }
+
+  // Stage: Entry Point
   stages.push({
-    icon: Globe,
-    stage: 'Stage 1 — Entry Point',
-    title: 'Suspicious URL Encountered',
+    icon: Link2,
+    stage: `Stage ${stageCounter++} — Entry Point`,
+    title: 'Suspicious URL',
     description: `Target: ${result.url}`,
     status: 'DETECTED',
     riskLevel: 'MEDIUM',
   });
 
-  // Stage 2: Heuristic signals
+  // Stage: Heuristic signals
   const signals = result.signals || {};
   const flaggedSignals = Object.entries(signals)
     .filter(([, v]) => v)
@@ -109,7 +159,7 @@ export function AttackReplayPage() {
   if (flaggedSignals) {
     stages.push({
       icon: Activity,
-      stage: 'Stage 2 — Heuristic Analysis',
+      stage: `Stage ${stageCounter++} — Heuristic Analysis`,
       title: 'Malicious URL Patterns',
       description: `Flagged signals: ${flaggedSignals}`,
       status: 'FLAGGED',
@@ -117,11 +167,11 @@ export function AttackReplayPage() {
     });
   }
 
-  // Stage 3: Typosquatting
+  // Stage: Typosquatting
   if (result.typosquatting?.detected) {
     stages.push({
       icon: Shield,
-      stage: 'Stage 3 — Brand Impersonation',
+      stage: `Stage ${stageCounter++} — Brand Impersonation`,
       title: `Typosquatting: ${result.typosquatting.matched_domain}`,
       description: `${result.typosquatting.reason || 'Brand impersonation detected via Levenshtein similarity analysis.'}`,
       status: 'CONFIRMED',
@@ -129,11 +179,11 @@ export function AttackReplayPage() {
     });
   }
 
-  // Stage 4: DNS
+  // Stage: DNS
   if (!result.dns?.resolved) {
     stages.push({
       icon: Globe,
-      stage: 'Stage 4 — Network Evasion',
+      stage: `Stage ${stageCounter++} — Network Evasion`,
       title: 'DNS Resolution Failed',
       description: result.dns?.error || 'Domain could not be resolved — potential ephemeral malicious domain.',
       status: 'SUSPICIOUS',
@@ -142,7 +192,7 @@ export function AttackReplayPage() {
   } else if (result.signals?.ip_based) {
     stages.push({
       icon: Globe,
-      stage: 'Stage 4 — Direct IP Access',
+      stage: `Stage ${stageCounter++} — Direct IP Access`,
       title: 'Raw IP Hostname Used',
       description: `Connects directly to IP: ${result.dns?.ip_addresses?.[0] || 'unknown'} — bypasses DNS-based protection.`,
       status: 'FLAGGED',
@@ -150,11 +200,11 @@ export function AttackReplayPage() {
     });
   }
 
-  // Stage 5: Redirects
+  // Stage: Redirects
   if (result.redirects?.redirect_count > 0) {
     stages.push({
       icon: CornerDownRight,
-      stage: 'Stage 5 — Redirect Chain',
+      stage: `Stage ${stageCounter++} — Redirect Chain`,
       title: `${result.redirects.redirect_count} HTTP Redirect${result.redirects.redirect_count > 1 ? 's' : ''}`,
       description: `Redirects from ${result.redirects.original_url} → ${result.redirects.final_url}`,
       status: result.redirects.redirect_count >= 3 ? 'HIGH RISK' : 'NOTED',
@@ -162,12 +212,27 @@ export function AttackReplayPage() {
     });
   }
 
-  // Stage 6: TLS
+  // Stage: Fake Login Page / Credential Request Check
+  // Since we don't have a specific rule named "fake_login", we check if we have suspicious_keywords or if the risk is HIGH with typosquatting.
+  // The user explicitly requested to add a node for credential collection if supported by existing risk indicators.
+  const isCredentialThreat = result.typosquatting?.detected || flaggedSignals.includes('suspicious keywords') || result.riskLevel === 'CRITICAL';
+  if (isCredentialThreat) {
+    stages.push({
+      icon: Lock,
+      stage: `Stage ${stageCounter++} — Destination Analysis`,
+      title: 'Credential Collection Risk',
+      description: 'Destination characteristics indicate potential phishing for sensitive information.',
+      status: 'WARNING',
+      riskLevel: 'HIGH',
+    });
+  }
+
+  // Stage: TLS
   if (result.tls?.tls_available) {
     if (!result.tls.tls_valid || result.tls.expired || !result.tls.hostname_matches) {
       stages.push({
         icon: Lock,
-        stage: 'Stage 6 — TLS Spoofing',
+        stage: `Stage ${stageCounter++} — TLS Spoofing`,
         title: 'Invalid TLS Certificate',
         description: `Certificate issues detected: ${
           result.tls.expired ? 'Expired certificate. ' : ''
@@ -178,7 +243,7 @@ export function AttackReplayPage() {
     } else {
       stages.push({
         icon: Lock,
-        stage: 'Stage 6 — TLS/SSL',
+        stage: `Stage ${stageCounter++} — TLS/SSL`,
         title: 'Valid HTTPS Certificate',
         description: `Subject: ${result.tls.subject} | Issuer: ${result.tls.issuer} — certificate valid.`,
         status: 'CLEAN',
@@ -188,7 +253,7 @@ export function AttackReplayPage() {
   } else if (result.url?.startsWith('http://')) {
     stages.push({
       icon: Lock,
-      stage: 'Stage 6 — No Encryption',
+      stage: `Stage ${stageCounter++} — No Encryption`,
       title: 'Plain HTTP — No TLS',
       description: 'Connection is unencrypted. Credentials and data sent in plaintext.',
       status: 'RISK',
@@ -196,10 +261,10 @@ export function AttackReplayPage() {
     });
   }
 
-  // Stage 7: Final verdict
+  // Stage: Final verdict
   stages.push({
     icon: AlertTriangle,
-    stage: 'Final Verdict',
+    stage: `Stage ${stageCounter++} — Final Verdict`,
     title: `Risk Score: ${riskScore}/100 — ${riskLevel}`,
     description: result.risk?.explanation || `Analysis complete. Risk level: ${riskLevel}.`,
     status: riskLevel,
@@ -219,8 +284,16 @@ export function AttackReplayPage() {
             Attack chain derived from real analysis · {stages.length} stages identified
           </p>
         </div>
-        <div className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold uppercase ${getRiskColor(riskLevel).bg} ${getRiskColor(riskLevel).text} ${getRiskColor(riskLevel).border}`}>
-          {riskLevel} RISK · {riskScore}/100
+        <div className="flex gap-2 items-center">
+          <button onClick={() => navigate(analysisIdFromUrl ? `/report?id=${analysisIdFromUrl}` : '/report')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+             Report
+          </button>
+          <button onClick={() => navigate(analysisIdFromUrl ? `/technical?id=${analysisIdFromUrl}` : '/technical')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+             Technical
+          </button>
+          <div className={`ml-2 px-3 py-1.5 rounded-lg border text-xs font-mono font-bold uppercase ${getRiskColor(riskLevel).bg} ${getRiskColor(riskLevel).text} ${getRiskColor(riskLevel).border}`}>
+            {riskLevel} RISK · {riskScore}/100
+          </div>
         </div>
       </div>
 

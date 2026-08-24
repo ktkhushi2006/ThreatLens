@@ -104,7 +104,7 @@ export function TechnicalPage() {
           <button onClick={() => navigate(analysisIdFromUrl ? `/report?id=${analysisIdFromUrl}` : '/report')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
             <ArrowLeft className="h-3.5 w-3.5" /> Report
           </button>
-          <button onClick={() => navigate('/attack-replay')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          <button onClick={() => navigate(analysisIdFromUrl ? `/attack-replay?id=${analysisIdFromUrl}` : '/attack-replay')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
             Attack Replay <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
