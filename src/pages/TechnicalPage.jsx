@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Network, Globe, Server, CornerDownRight, Lock, ArrowLeft,
   ArrowRight, Check, XCircle, ChevronDown, ChevronUp, AlertTriangle
@@ -34,10 +34,38 @@ function DataRow({ label, value, valueClass = 'text-slate-200 font-semibold' }) 
 
 export function TechnicalPage() {
   const navigate = useNavigate();
-  const { latestResult } = useAnalysis();
+  const { latestResult, loadAnalysisById, loading: contextLoading } = useAnalysis();
   const [showAllHeaders, setShowAllHeaders] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [fetchLoading, setFetchLoading] = React.useState(false);
 
-  if (!latestResult) {
+  const analysisIdFromUrl = searchParams.get('id');
+
+  React.useEffect(() => {
+    if (analysisIdFromUrl) {
+      const idNum = parseInt(analysisIdFromUrl, 10);
+      if (!isNaN(idNum) && (!latestResult || latestResult.analysis_id !== idNum)) {
+        setFetchLoading(true);
+        loadAnalysisById(idNum).finally(() => setFetchLoading(false));
+      }
+    }
+  }, [analysisIdFromUrl, latestResult, loadAnalysisById]);
+
+  const result = latestResult;
+
+  if (fetchLoading || (contextLoading && !result)) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-slate-700 p-12 text-center space-y-3">
+          <div className="h-8 w-8 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin mx-auto" />
+          <p className="text-slate-300 font-mono text-sm font-semibold">Loading Analysis...</p>
+          <p className="text-slate-500 font-mono text-xs">Fetching report from backend.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!result) {
     return (
       <div className="space-y-4">
         <button onClick={() => navigate('/analyze')} className="flex items-center gap-1.5 text-xs font-mono text-cyan-400 hover:text-cyan-300">
@@ -55,7 +83,7 @@ export function TechnicalPage() {
     );
   }
 
-  const { dns, http, redirects, tls } = latestResult;
+  const { dns, http, redirects, tls } = result;
   const headers = http?.headers || {};
   const headerEntries = Object.entries(headers);
   const visibleHeaders = showAllHeaders ? headerEntries : headerEntries.slice(0, 5);
@@ -73,7 +101,7 @@ export function TechnicalPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => navigate('/report')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          <button onClick={() => navigate(analysisIdFromUrl ? `/report?id=${analysisIdFromUrl}` : '/report')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
             <ArrowLeft className="h-3.5 w-3.5" /> Report
           </button>
           <button onClick={() => navigate('/attack-replay')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
@@ -85,7 +113,7 @@ export function TechnicalPage() {
       {/* Target Info */}
       <div className="rounded-2xl bg-[#0D1322]/95 border border-slate-800/90 p-4 font-mono text-xs">
         <span className="text-slate-500 uppercase tracking-wider">Analyzed Target: </span>
-        <span className="text-cyan-300 font-bold">{latestResult.url}</span>
+        <span className="text-cyan-300 font-bold">{result.url}</span>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

@@ -52,7 +52,7 @@ export function AnalysisProvider({ children }) {
     loadAnalytics();
   }, [checkHealth, loadHistory, loadAnalytics]);
 
-  const analyzeUrl = useCallback(async (url) => {
+  const analyzeUrl = useCallback(async (url, source = "URL") => {
     if (!url?.trim()) return null;
     setLoading(true);
     setError(null);
@@ -61,7 +61,7 @@ export function AnalysisProvider({ children }) {
       const response = await fetch(`${API_BASE_URL}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() }),
+        body: JSON.stringify({ url: url.trim(), source }),
       });
 
       const data = await response.json();
@@ -96,6 +96,75 @@ export function AnalysisProvider({ children }) {
     }
   }, [loadHistory, loadAnalytics]);
 
+  const loadAnalysisById = useCallback(async (id) => {
+    if (!id) return null;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/history/${id}`);
+      if (!response.ok) throw new Error(`Backend returned ${response.status}`);
+      const rec = await response.json();
+      
+      const normalized = {
+        url: rec.url,
+        risk_score: rec.risk_score,
+        risk_level: rec.risk_level,
+        analysis_id: rec.id,
+        analyzedAt: rec.created_at,
+        reasons: (rec.signals || []).map(s => s.signal_name),
+        signals: {
+          ip_based: (rec.signals || []).some(s => s.signal_name === 'ip_based_hostname'),
+          unusual_port: (rec.signals || []).some(s => s.signal_name === 'unusual_port'),
+          suspicious_keywords: (rec.signals || []).some(s => s.signal_name === 'suspicious_keywords'),
+          encoded_characters: (rec.signals || []).some(s => s.signal_name === 'encoded_characters'),
+          unusual_subdomain: (rec.signals || []).some(s => s.signal_name === 'unusual_subdomain'),
+        },
+        typosquatting: { detected: false },
+        dns: {
+          hostname: rec.url,
+          resolved: rec.dns_resolved ?? false,
+          ip_addresses: [],
+        },
+        tls: {
+          tls_available: rec.tls_valid != null,
+          tls_valid: rec.tls_valid ?? false,
+        },
+        http: { status_code: null },
+        redirects: {
+          original_url: rec.url,
+          final_url: rec.url,
+          redirect_count: (rec.redirects || []).length,
+          redirect_chain: (rec.redirects || []).map(r => ({
+            from_url: r.source_url,
+            to_url: r.destination_url,
+            status_code: r.status_code,
+          })),
+        },
+        risk: {
+          score: rec.risk_score,
+          level: rec.risk_level,
+          db_available: true,
+          triggered_rules: (rec.signals || []).map(s => ({
+            rule_name: s.signal_name,
+            signal_key: s.signal_name,
+            score: s.score_contribution,
+            category: '',
+            description: '',
+          })),
+          explanation: 'Loaded from PostgreSQL analysis history.',
+        },
+      };
+      
+      setLatestResult(normalized);
+      return normalized;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
   const clearHistory = useCallback(() => setHistory([]), []);
 
@@ -110,6 +179,7 @@ export function AnalysisProvider({ children }) {
     checkHealth,
     loadHistory,
     loadAnalytics,
+    loadAnalysisById,
     clearError,
     clearHistory,
   };

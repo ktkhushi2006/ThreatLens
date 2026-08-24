@@ -7,7 +7,7 @@ except ImportError:
 import json
 import datetime
 
-def save_analysis(result: Dict[str, Any]) -> int:
+def save_analysis(result: Dict[str, Any], analysis_type: str = "URL") -> int:
     """Save analysis result to PostgreSQL and return analysis_id"""
     with get_connection() as conn:
         # Insert analysis
@@ -24,7 +24,7 @@ def save_analysis(result: Dict[str, Any]) -> int:
             "url": result.get("url"),
             "risk_score": result.get("risk", {}).get("score", 0),
             "risk_level": result.get("risk", {}).get("level", "LOW"),
-            "analysis_type": "URL",
+            "analysis_type": analysis_type,
             "dns_resolved": dns_resolved,
             "tls_valid": tls_valid
         })

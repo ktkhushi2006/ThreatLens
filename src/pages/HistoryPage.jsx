@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { History, Search, Filter, Globe, ArrowRight, Inbox, Trash2 } from 'lucide-react';
+import { History, Search, Filter, Globe, ArrowRight, Inbox, Trash2, QrCode, Mail, Puzzle } from 'lucide-react';
 import { useAnalysis } from '../context/AnalysisContext';
 
 function getRiskBadgeClass(level) {
@@ -9,6 +9,15 @@ function getRiskBadgeClass(level) {
     case 'HIGH': return 'bg-orange-500/20 text-orange-300 border-orange-500/30';
     case 'MEDIUM': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
     default: return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+  }
+}
+
+function getTypeStyle(type) {
+  switch (type?.toUpperCase()) {
+    case 'QR': return { icon: QrCode, color: 'text-fuchsia-400 bg-fuchsia-500/10 border-fuchsia-500/30' };
+    case 'EMAIL': return { icon: Mail, color: 'text-teal-400 bg-teal-500/10 border-teal-500/30' };
+    case 'EXTENSION': return { icon: Puzzle, color: 'text-amber-400 bg-amber-500/10 border-amber-500/30' };
+    default: return { icon: Globe, color: 'text-blue-400 bg-blue-500/10 border-blue-500/30' };
   }
 }
 
@@ -82,7 +91,7 @@ export function HistoryPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-950/60">
-                  {['Target URL', 'Risk Level', 'Score', 'DNS', 'TLS', 'Date', 'Action'].map(col => (
+                  {['Source', 'Target URL', 'Risk Level', 'Score', 'DNS', 'TLS', 'Date', 'Action'].map(col => (
                     <th key={col} className="px-4 py-3 text-left text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
                       {col}
                     </th>
@@ -98,6 +107,9 @@ export function HistoryPage() {
                   const date = item.created_at
                     ? new Date(item.created_at).toLocaleString()
                     : (item.analyzedAt ? new Date(item.analyzedAt).toLocaleString() : '—');
+                  
+                  const type = item.analysis_type || 'URL';
+                  const { icon: TypeIcon, color: typeColor } = getTypeStyle(type);
 
                   return (
                     <tr
@@ -105,8 +117,13 @@ export function HistoryPage() {
                       className="border-b border-slate-900/80 hover:bg-slate-900/40 transition-colors"
                     >
                       <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-mono font-bold uppercase border ${typeColor}`}>
+                          <TypeIcon className="h-3 w-3" />
+                          {type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <Globe className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
                           <span className="text-xs font-mono text-slate-200 truncate max-w-[200px]" title={item.url}>
                             {item.url}
                           </span>
@@ -178,7 +195,7 @@ export function HistoryPage() {
 
       {/* Info note */}
       <div className="p-3.5 rounded-xl bg-slate-900/40 border border-slate-800 text-[11px] font-mono text-slate-500">
-        <strong className="text-slate-400">Note:</strong> History is persistent and securely stored in PostgreSQL (Phase 7).
+        <strong className="text-slate-400">Note:</strong> History is persistent and securely stored in PostgreSQL.
       </div>
     </div>
   );

@@ -1,11 +1,13 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FileText, Shield, Globe, Server, Network, Lock, CornerDownRight,
   AlertTriangle, Check, XCircle, CheckCircle2, Database, ArrowLeft,
   ArrowRight, AlertCircle
 } from 'lucide-react';
 import { useAnalysis } from '../context/AnalysisContext';
+
+const API_BASE = 'http://localhost:8000';
 
 function getRiskColors(level) {
   switch (level) {
@@ -42,9 +44,40 @@ function InfoRow({ label, value, valueClass = 'text-slate-200' }) {
 
 export function ReportPage() {
   const navigate = useNavigate();
-  const { latestResult } = useAnalysis();
+  const { latestResult, loadAnalysisById, loading: contextLoading } = useAnalysis();
+  const [searchParams] = useSearchParams();
+  const [fetchLoading, setFetchLoading] = React.useState(false);
 
-  if (!latestResult) {
+  const analysisIdFromUrl = searchParams.get('id');
+
+  React.useEffect(() => {
+    if (analysisIdFromUrl) {
+      const idNum = parseInt(analysisIdFromUrl, 10);
+      if (!isNaN(idNum) && (!latestResult || latestResult.analysis_id !== idNum)) {
+        setFetchLoading(true);
+        loadAnalysisById(idNum).finally(() => setFetchLoading(false));
+      }
+    }
+  }, [analysisIdFromUrl, latestResult, loadAnalysisById]);
+
+  // Use latestResult, which now gets populated by loadAnalysisById
+  const result = latestResult;
+
+  if (fetchLoading || (contextLoading && !result)) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-slate-700 p-12 text-center space-y-3">
+          <div className="h-8 w-8 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin mx-auto" />
+          <p className="text-slate-300 font-mono text-sm font-semibold">Loading Analysis...</p>
+          <p className="text-slate-500 font-mono text-xs">Fetching report from backend.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Remove the old fetchError block since context handles error (or we can just show no analysis)
+  
+  if (!result) {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-xs font-mono">
@@ -64,7 +97,7 @@ export function ReportPage() {
     );
   }
 
-  const result = latestResult;
+
   const riskScore = result?.risk?.score ?? result?.risk_score ?? 0;
   const riskLevel = result?.risk?.level ?? result?.risk_level ?? 'LOW';
   const triggeredRules = result?.risk?.triggered_rules || [];
@@ -89,7 +122,7 @@ export function ReportPage() {
           <button onClick={() => navigate('/analyze')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
             <ArrowLeft className="h-3.5 w-3.5" /> Scan Again
           </button>
-          <button onClick={() => navigate('/technical')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+          <button onClick={() => navigate(analysisIdFromUrl ? `/technical?id=${analysisIdFromUrl}` : '/technical')} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
             Technical <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>

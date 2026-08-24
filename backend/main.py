@@ -44,6 +44,7 @@ def startup_event():
 
 class AnalyzeRequest(BaseModel):
     url: str
+    source: Optional[str] = "URL"
 
 # ── Sub-schemas ───────────────────────────────────────────────────────────────
 # (Keeping exact schemas as requested to not break frontend)
@@ -139,6 +140,9 @@ def health_check():
         "engine":  "PostgreSQL-backed Risk Engine & Analytics"
     }
 
+# "?"? In-memory cache for full rich reports (Phase 9 extension flow) "?"?
+recent_analyses_cache: Dict[int, Any] = {}
+
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 def analyze_url(payload: AnalyzeRequest):
     raw_url = payload.url.strip()
@@ -148,11 +152,15 @@ def analyze_url(payload: AnalyzeRequest):
     try:
         result = analyze_url_heuristics(raw_url)
         
-        # Phase 7: Persist analysis
+        # Phase 7/8/9: Persist analysis
         analysis_id = None
         try:
-            analysis_id = save_analysis(result)
+            analysis_id = save_analysis(result, analysis_type=payload.source)
             result['analysis_id'] = analysis_id
+            
+            # Cache the full rich object in memory for immediate retrieval by frontend
+            recent_analyses_cache[analysis_id] = result
+            
         except Exception as db_err:
             logger.error(f"Failed to persist analysis: {db_err}")
             
@@ -161,6 +169,37 @@ def analyze_url(payload: AnalyzeRequest):
         raise HTTPException(status_code=400, detail=f"Invalid URL: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis engine error: {str(e)}")
+
+@app.get("/api/analyze/full/{analysis_id}")
+def get_full_analysis(analysis_id: int):
+    # Retrieve the full rich object from memory if available
+    if analysis_id in recent_analyses_cache:
+        return recent_analyses_cache[analysis_id]
+        
+    # If not in memory (server restarted or old analysis), try to reconstruct a partial one from history
+    from backend.history import get_analysis
+    history_record = get_analysis(analysis_id)
+    if not history_record:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+        
+    # Reconstruct a compatible skeleton
+    return {
+        "url": history_record["url"],
+        "risk_score": history_record["risk_score"],
+        "risk_level": history_record["risk_level"],
+        "analysis_id": history_record["id"],
+        "analyzedAt": history_record["created_at"],
+        "reasons": [s["signal_name"] for s in history_record.get("signals", [])],
+        "dns": { "resolved": history_record.get("dns_resolved", False) },
+        "tls": { "tls_available": history_record.get("tls_valid") is not None, "tls_valid": history_record.get("tls_valid", False) },
+        "redirects": { "redirect_chain": history_record.get("redirects", []), "redirect_count": len(history_record.get("redirects", [])) },
+        "risk": {
+            "score": history_record["risk_score"],
+            "level": history_record["risk_level"],
+            "triggered_rules": [{"rule_name": s["signal_name"], "score": s["score_contribution"]} for s in history_record.get("signals", [])],
+            "explanation": "Loaded from historical database records (partial data)."
+        }
+    }
 
 @app.get("/api/history")
 def get_history():
