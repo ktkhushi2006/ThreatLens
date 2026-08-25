@@ -1,4 +1,4 @@
-# ThreatLens
+## ThreatLens
 
 ThreatLens is a comprehensive web-based URL security and threat analysis platform. It actively investigates submitted URLs and produces detailed security reports to help users identify potentially malicious links, phishing attempts, and brand impersonation before they click.
 
@@ -11,6 +11,7 @@ ThreatLens is a comprehensive web-based URL security and threat analysis platfor
 ## 1. Project Overview
 
 **The Problem:** Malicious actors continuously deploy phishing pages, typosquatted domains, and obfuscated URLs to steal credentials and distribute malware. Standard users often lack the tools to verify a link's safety beyond basic visual inspection.
+
 **The Solution:** ThreatLens provides a unified analysis engine that inspects a URL from multiple angles—combining static heuristic analysis (e.g., suspicious keywords, unusual formats) with active network reconnaissance (DNS resolution, TLS verification, HTTP behavior, and redirect tracking).
 
 ## 2. Main Features
@@ -43,36 +44,37 @@ ThreatLens triggers specific database-backed risk rules when suspicious signals 
 
 ThreatLens operates on a decoupled client-server architecture:
 
-```
-[User / Browser Extension] 
-       ↓ (Submits URL)
-[React Frontend] 
-       ↓ (POST /api/analyze)
-[FastAPI Backend API] 
-       ↓
+```text
+[User / Browser Extension]
+          ↓ (Submits URL)
+[React Frontend]
+          ↓ (POST /api/analyze)
+[FastAPI Backend API]
+          ↓
 [Analysis Modules (DNS, HTTP, TLS, Redirects, Typosquat)]
-       ↓
+          ↓
 [PostgreSQL Risk Engine (Calculates Score based on Rules)]
-       ↓
+          ↓
 [Generated Security Report returned to Frontend]
 ```
 
-The backend performs the actual heavy lifting—executing the live DNS, HTTP, redirect, and TLS network requests—preventing CORS issues and ensuring a consistent analytical environment.
+The backend performs the actual analysis—executing the live DNS, HTTP, redirect, and TLS network requests—providing a consistent analytical environment.
 
 ## 5. Technical Stack
 
 **Frontend:**
 - React 18 & Vite
-- Tailwind CSS (Styling)
-- Lucide React (Icons)
-- React Router (Routing)
-- Recharts (Data visualization)
+- Tailwind CSS
+- Lucide React
+- React Router
+- Recharts
 
 **Backend:**
 - Python 3.10+
-- FastAPI & Uvicorn (High-performance API)
-- Pydantic (Data validation)
-- SQLAlchemy (ORM) & Psycopg2 (Database driver)
+- FastAPI & Uvicorn
+- Pydantic
+- SQLAlchemy
+- Psycopg2
 
 **Database & Deployment:**
 - PostgreSQL (Render)
@@ -84,31 +86,32 @@ The backend performs the actual heavy lifting—executing the live DNS, HTTP, re
 ```text
 ThreatLens/
 ├── backend/                  # Python FastAPI Backend
-│   ├── main.py               # API endpoints & caching logic
-│   ├── analyzer.py           # Core analysis pipeline orchestrator
-│   ├── dns_analyzer.py       # Socket-based DNS resolution
-│   ├── http_analyzer.py      # HTTP request and header inspection
-│   ├── tls_analyzer.py       # SSL/TLS handshake & cert validation
-│   ├── redirect_analyzer.py  # Redirect chain tracking
-│   ├── risk_engine.py        # Rule evaluation & scoring
-│   ├── schema.py             # DB Schema (analyses, history)
-│   ├── risk_rules_schema.py  # DB Schema (dynamic risk rules)
-│   └── requirements.txt      # Python dependencies
-├── src/                      # React Frontend
-│   ├── App.jsx               # Application shell & routes
-│   ├── context/              # Global state (AnalysisContext)
-│   ├── pages/                # UI Views (ReportPage, TechnicalPage, etc.)
-│   └── index.css             # Tailwind configuration
-├── extension/                # Chrome/Edge Browser Extension
-│   ├── manifest.json         # Manifest V3 configuration
-│   └── popup.js              # Extension logic & API integration
-├── vercel.json               # Vercel deployment configuration
-└── package.json              # Node dependencies & Vite scripts
+│   ├── main.py              # API endpoints & caching logic
+│   ├── analyzer.py          # Core analysis pipeline orchestrator
+│   ├── dns_analyzer.py      # DNS resolution
+│   ├── http_analyzer.py     # HTTP request and header inspection
+│   ├── tls_analyzer.py      # SSL/TLS handshake & certificate validation
+│   ├── redirect_analyzer.py # Redirect chain tracking
+│   ├── risk_engine.py       # Rule evaluation & scoring
+│   ├── schema.py            # Database schema
+│   ├── risk_rules_schema.py # Dynamic risk rules schema
+│   └── requirements.txt     # Python dependencies
+├── src/                     # React Frontend
+│   ├── App.jsx              # Application shell & routes
+│   ├── context/             # Global state
+│   ├── pages/               # UI views
+│   └── index.css            # Global styling
+├── extension/               # Chrome/Edge Browser Extension
+│   ├── manifest.json        # Manifest V3 configuration
+│   └── popup.js             # Extension logic & API integration
+├── vercel.json              # Vercel deployment configuration
+└── package.json             # Node dependencies & Vite scripts
 ```
 
 ## 7. Deployment Configuration
 
 The current production environment is configured as follows:
+
 - **Frontend:** Deployed to Vercel. SPA routing is handled via `vercel.json` rewrites.
 - **Backend:** Deployed to Render.
 - **Database:** Render PostgreSQL.
@@ -116,66 +119,103 @@ The current production environment is configured as follows:
 
 ## 8. Testing & Verification
 
-The deployed pipeline has been thoroughly verified for accuracy across edge cases:
-- **DNS Resolution:** Successfully resolves and deduplicates IPv4/IPv6 addresses.
-- **HTTP Verification:** Correctly detects HTTP 200 reachable states, response headers, and Server signatures.
-- **TLS Details:** Accurately extracts Subject CN, Issuer, and validity dates directly from the raw SSL socket.
-- **TLS Hostname Matching:** Correctly handles wildcard matches (e.g., `*.example.com` matching `sub.example.com`).
+The deployed pipeline has been verified across multiple scenarios:
+
+- **DNS Resolution:** Successfully resolves and displays IPv4/IPv6 addresses.
+- **HTTP Verification:** Correctly detects reachable HTTP responses, status codes, response headers, and Server signatures.
+- **TLS Details:** Extracts Subject CN, Issuer, and certificate validity dates.
+- **TLS Hostname Matching:** Correctly handles certificate SAN/CN matching and wildcard certificates.
 - **Risk Scoring:** PostgreSQL-backed risk rules are evaluated and accumulated into the final risk score.
-- **Deep Linking:** Full reports load correctly when shared or opened in a new browser tab via `?id=` query parameters.
+- **Deep Linking:** Full reports load correctly when opened in a new browser tab using `?id=` query parameters.
+- **Browser Extension:** Successfully sends the active URL to the production backend and opens the corresponding report.
 
 ## 9. Example Tests
 
 You can safely test the analysis engine with the following URLs:
 
-1. `https://www.google.com` → **Expected:** Clean/Low Risk. Verifies that DNS resolves, HTTP 200 is captured, and TLS certificates match perfectly without triggering false positives.
+1. `https://www.google.com` → **Expected:** Clean/Low Risk. Verifies DNS resolution, HTTP analysis, and TLS certificate matching.
 2. `https://example.com` → **Expected:** Clean/Low Risk. Validates standard domain handling and redirect tracking.
-3. `http://192.168.1.10/login` → **Expected:** Medium Risk. Demonstrates the detection of a raw-IP hostname combined with a suspicious keyword ("login") in an unencrypted (HTTP) context. *(Note: This private IP is not expected to be reachable from the deployed server; it is specifically used to verify that the static heuristic risk engine correctly flags suspicious patterns before network failure.)*
+3. `http://192.168.1.10/login` → **Expected:** Medium Risk. Demonstrates detection of a raw-IP hostname combined with a suspicious keyword (`login`). The private IP is not expected to be reachable from the deployed server; it is used to verify the risk-detection logic.
 
 ## 10. Setup and Usage
 
 ### Prerequisites
+
 - Node.js & npm
 - Python 3.10+
-- PostgreSQL (Optional for local, required for full DB functionality)
+- PostgreSQL 16+ (required for full local functionality)
+
+### Running PostgreSQL Locally
+
+Start PostgreSQL using:
+
+```powershell
+C:\Users\DELL\pgsql\bin\postgres.exe -D C:\Users\DELL\pgsql\data
+```
+
+Keep this terminal running while using the local application. PostgreSQL listens on port `5432`.
 
 ### Running the Backend Locally
+
+Open a **second terminal** in the project root:
+
 ```bash
-# Navigate to project root
-cd ThreatLens
-
-# Install Python dependencies
 pip install -r backend/requirements.txt
-
-# Start the FastAPI server
 uvicorn backend.main:app --reload --port 8000
 ```
+
 The backend API will be available at `http://localhost:8000`.
 
 ### Running the Frontend Locally
-```bash
-# Open a new terminal in the project root
-npm install
 
-# Start the Vite development server
+Open a **third terminal** in the project root:
+
+```bash
+npm install
 npm run dev
 ```
+
 The frontend UI will be available at `http://localhost:3000`.
 
+### Local Development
+
+ThreatLens therefore uses three terminals during full local development:
+
+```text
+Terminal 1 → PostgreSQL :5432
+Terminal 2 → FastAPI Backend :8000
+Terminal 3 → React/Vite Frontend
+```
+
 ### Building for Production
+
 ```bash
 npm run build
 ```
 
 ## 11. Browser Extension
 
-ThreatLens includes a Manifest V3 browser extension (`/extension`) that integrates directly with the production API.
-- **Workflow:** Clicking the extension in your browser captures the current active tab's URL and submits a `POST` request to the backend.
-- **Handoff:** Upon receiving an `analysis_id`, the extension securely opens a new tab directed to the ThreatLens web application (`/report?id=...`), seamlessly handing off the user to the full, interactive security report.
+ThreatLens includes a Manifest V3 browser extension located in `/extension`.
+
+**Workflow:**
+
+1. The user clicks the extension while viewing a webpage.
+2. The extension captures the current active tab URL.
+3. The URL is submitted to the production FastAPI backend.
+4. The backend performs the analysis and returns an `analysis_id`.
+5. The extension opens the ThreatLens Vercel report using `/report?id=<analysis_id>`.
+6. The report loads the detailed analysis for that ID.
+
+This allows users to analyze the current webpage without manually copying and pasting its URL.
 
 ## 12. Why It's Technically Interesting
 
-ThreatLens features several advanced implementation details that ensure stability and performance:
+ThreatLens features several technical implementation details that make the system more robust:
 
-- **State Hydration via Caching:** When the browser extension opens the web application in a new tab, the React SPA must load the report by its ID. Because the PostgreSQL history table stores only a lightweight summary, the FastAPI backend implements an **in-memory rich cache**. This allows the newly opened tab to fetch the full, high-fidelity analysis (including raw HTTP headers and TLS certificates) instantly, while older historical scans gracefully degrade to a skeletal database-backed view.
-- **Modern TLS Hostname Verification:** The backend performs active TLS handshakes and implements its own hostname-matching logic using certificate SAN/CN values and wildcard matching, providing reliable hostname verification across modern Python runtimes.
+- **State Hydration via Caching:** When the browser extension opens the web application in a new tab, the React SPA must load the report by its ID. Because the PostgreSQL history table stores a lightweight summary, the FastAPI backend maintains an in-memory rich analysis cache for recently generated reports. This allows the new tab to retrieve detailed analysis data such as HTTP headers and TLS information.
+
+- **Modern TLS Hostname Verification:** The backend performs active TLS handshakes and implements hostname-matching logic using certificate SAN/CN values and wildcard matching, providing reliable hostname verification across modern Python runtimes.
+
+- **Database-Driven Risk Engine:** Risk rules are stored and evaluated through PostgreSQL, allowing multiple detected signals to contribute to the final risk score.
+
+- **Production SPA Routing:** Vercel rewrite configuration allows direct navigation to routes such as `/report`, `/technical`, `/history`, and `/analytics` without returning Vercel 404 errors.
