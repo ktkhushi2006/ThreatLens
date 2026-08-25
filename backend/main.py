@@ -183,6 +183,10 @@ def get_full_analysis(analysis_id: int):
         raise HTTPException(status_code=404, detail="Analysis not found")
         
     # Reconstruct a compatible skeleton
+    from urllib.parse import urlparse
+    parsed = urlparse(history_record["url"])
+    hostname = parsed.hostname or ""
+
     return {
         "url": history_record["url"],
         "risk_score": history_record["risk_score"],
@@ -190,9 +194,15 @@ def get_full_analysis(analysis_id: int):
         "analysis_id": history_record["id"],
         "analyzedAt": history_record["created_at"],
         "reasons": [s["signal_name"] for s in history_record.get("signals", [])],
-        "dns": { "resolved": history_record.get("dns_resolved", False) },
-        "tls": { "tls_available": history_record.get("tls_valid") is not None, "tls_valid": history_record.get("tls_valid", False) },
-        "redirects": { "redirect_chain": history_record.get("redirects", []), "redirect_count": len(history_record.get("redirects", [])) },
+        "signals": {
+            s["signal_name"]: bool(s["signal_value"]) 
+            for s in history_record.get("signals", [])
+        },
+        "typosquatting": { "detected": False },
+        "dns": { "hostname": hostname, "resolved": history_record.get("dns_resolved", False), "ip_addresses": [] },
+        "http": { "status_code": None, "headers": {} },
+        "tls": { "tls_available": history_record.get("tls_valid") is not None, "tls_valid": history_record.get("tls_valid", False), "subject": hostname },
+        "redirects": { "original_url": history_record["url"], "final_url": history_record["url"], "redirect_chain": history_record.get("redirects", []), "redirect_count": len(history_record.get("redirects", [])) },
         "risk": {
             "score": history_record["risk_score"],
             "level": history_record["risk_level"],
