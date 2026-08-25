@@ -114,40 +114,59 @@ def get_analytics() -> Dict[str, Any]:
 
 def get_analysis(analysis_id: int) -> Dict[str, Any]:
     with get_connection() as conn:
-        row = conn.execute(text("SELECT * FROM analyses WHERE id = :id"), {"id": analysis_id}).fetchone()
+        row = conn.execute(
+            text("""
+                SELECT id, url, risk_score, risk_level, analysis_type,
+                       dns_resolved, tls_valid, created_at
+                FROM analyses WHERE id = :id
+            """),
+            {"id": analysis_id}
+        ).fetchone()
         if not row:
             return None
-            
+
         result = {
             "id": row.id,
             "url": row.url,
             "risk_score": row.risk_score,
             "risk_level": row.risk_level,
             "analysis_type": row.analysis_type,
-            "dns_resolved": row.dns_resolved,
-            "tls_valid": row.tls_valid,
+            "dns_resolved": bool(row.dns_resolved) if row.dns_resolved is not None else None,
+            "tls_valid": bool(row.tls_valid) if row.tls_valid is not None else None,
             "created_at": row.created_at.isoformat() if row.created_at else None,
             "signals": [],
             "redirects": []
         }
-        
-        sig_rows = conn.execute(text("SELECT * FROM analysis_signals WHERE analysis_id = :id"), {"id": analysis_id})
+
+        sig_rows = conn.execute(
+            text("""
+                SELECT signal_name, signal_value, score_contribution
+                FROM analysis_signals WHERE analysis_id = :id
+            """),
+            {"id": analysis_id}
+        )
         for sig in sig_rows:
             result["signals"].append({
                 "signal_name": sig.signal_name,
-                "signal_value": sig.signal_value,
-                "score_contribution": sig.score_contribution
+                "signal_value": bool(sig.signal_value) if sig.signal_value is not None else False,
+                "score_contribution": int(sig.score_contribution) if sig.score_contribution is not None else 0
             })
-            
-        red_rows = conn.execute(text("SELECT * FROM redirects WHERE analysis_id = :id ORDER BY hop_number"), {"id": analysis_id})
+
+        red_rows = conn.execute(
+            text("""
+                SELECT hop_number, source_url, destination_url, status_code
+                FROM redirects WHERE analysis_id = :id ORDER BY hop_number
+            """),
+            {"id": analysis_id}
+        )
         for red in red_rows:
             result["redirects"].append({
-                "hop_number": red.hop_number,
+                "hop_number": int(red.hop_number),
                 "source_url": red.source_url,
                 "destination_url": red.destination_url,
-                "status_code": red.status_code
+                "status_code": int(red.status_code) if red.status_code is not None else 0
             })
-            
+
         return result
 
 def delete_analysis(analysis_id: int) -> bool:

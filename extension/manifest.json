@@ -11,6 +11,7 @@
     "activeTab"
   ],
   "host_permissions": [
-    "http://localhost:8000/*"
+    "http://localhost:8000/*",
+    "https://threatlens-95ww.onrender.com/*"
   ]
 }

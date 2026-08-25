@@ -7,12 +7,12 @@ import logging
 try:
     from backend.analyzer import analyze_url_heuristics
     from backend.schema import create_phase7_tables
-    from backend.history import save_analysis, get_recent_analyses, get_analytics
+    from backend.history import save_analysis, get_recent_analyses, get_analytics, get_analysis, delete_analysis
     from backend.risk_rules_schema import create_and_seed_tables
 except ImportError:
     from analyzer import analyze_url_heuristics
     from schema import create_phase7_tables
-    from history import save_analysis, get_recent_analyses, get_analytics
+    from history import save_analysis, get_recent_analyses, get_analytics, get_analysis, delete_analysis
     from risk_rules_schema import create_and_seed_tables
 
 logger = logging.getLogger(__name__)
@@ -211,7 +211,6 @@ def get_history():
 @app.get("/api/history/{analysis_id}")
 def get_history_detail(analysis_id: int):
     try:
-        from backend.history import get_analysis
         res = get_analysis(analysis_id)
         if not res:
             raise HTTPException(status_code=404, detail="Analysis not found")
@@ -219,12 +218,12 @@ def get_history_detail(analysis_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error in get_history_detail({analysis_id}): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.delete("/api/history/{analysis_id}")
 def delete_history(analysis_id: int):
     try:
-        from backend.history import delete_analysis
         success = delete_analysis(analysis_id)
         if not success:
             raise HTTPException(status_code=404, detail="Analysis not found")
@@ -232,6 +231,7 @@ def delete_history(analysis_id: int):
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Error in delete_history({analysis_id}): {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.get("/api/analytics")

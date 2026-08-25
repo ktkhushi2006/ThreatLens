@@ -47,6 +47,7 @@ export function ReportPage() {
   const { latestResult, loadAnalysisById, loading: contextLoading } = useAnalysis();
   const [searchParams] = useSearchParams();
   const [fetchLoading, setFetchLoading] = React.useState(false);
+  const [fetchError, setFetchError] = React.useState(null);
 
   const analysisIdFromUrl = searchParams.get('id');
 
@@ -55,7 +56,13 @@ export function ReportPage() {
       const idNum = parseInt(analysisIdFromUrl, 10);
       if (!isNaN(idNum) && (!latestResult || latestResult.analysis_id !== idNum)) {
         setFetchLoading(true);
-        loadAnalysisById(idNum).finally(() => setFetchLoading(false));
+        setFetchError(null);
+        loadAnalysisById(idNum)
+          .then(res => {
+            if (!res) setFetchError(`Could not load analysis #${idNum} from backend.`);
+          })
+          .catch(err => setFetchError(err.message || 'Unknown error'))
+          .finally(() => setFetchLoading(false));
       }
     }
   }, [analysisIdFromUrl, latestResult, loadAnalysisById]);
@@ -75,8 +82,26 @@ export function ReportPage() {
     );
   }
 
-  // Remove the old fetchError block since context handles error (or we can just show no analysis)
-  
+  if (fetchError && !result) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <button onClick={() => navigate('/history')} className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-300">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back to History
+          </button>
+        </div>
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-12 text-center space-y-3">
+          <AlertCircle className="h-12 w-12 text-rose-500 mx-auto" />
+          <p className="text-rose-300 font-mono text-sm font-semibold">Failed to Load Report</p>
+          <p className="text-slate-400 font-mono text-xs">{fetchError}</p>
+          <button onClick={() => navigate('/history')} className="mt-2 inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-mono hover:bg-cyan-500/20 transition-all">
+            <ArrowLeft className="h-3.5 w-3.5" /> View History
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!result) {
     return (
       <div className="space-y-4">

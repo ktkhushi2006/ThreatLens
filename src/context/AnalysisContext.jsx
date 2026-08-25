@@ -27,6 +27,8 @@ export function AnalysisProvider({ children }) {
       if (res.ok) {
         const data = await res.json();
         setHistory(data);
+      } else {
+        console.error(`loadHistory: server returned ${res.status}`);
       }
     } catch (err) {
       console.error("Failed to load history", err);
@@ -159,7 +161,7 @@ export function AnalysisProvider({ children }) {
       setLatestResult(normalized);
       return normalized;
     } catch (err) {
-      setError(err.message);
+      console.error(`loadAnalysisById(${id}) failed:`, err.message);
       return null;
     } finally {
       setLoading(false);
