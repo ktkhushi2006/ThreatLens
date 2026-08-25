@@ -20,6 +20,7 @@ Design notes:
 import ssl
 import socket
 import datetime
+import fnmatch
 from typing import Dict, Any, Optional
 
 
@@ -78,6 +79,40 @@ def _is_cert_expired(not_after_iso: Optional[str]) -> Optional[bool]:
         return datetime.datetime.utcnow() > expiry
     except ValueError:
         return None
+
+
+def _hostname_matches_cert(hostname: str, cert: dict) -> bool:
+    """
+    RFC 2818 / RFC 6125 compliant hostname matching.
+    Checks SANs first (preferred), falls back to Subject CN.
+    Supports wildcard certificates (*.example.com matches sub.example.com).
+
+    Uses fnmatch instead of the deprecated/removed ssl.match_hostname
+    (removed in Python 3.12 which Render uses).
+    """
+    hostname = hostname.lower().strip().rstrip(".")
+
+    # 1. Check Subject Alternative Names (preferred per RFC 6125)
+    san_entries = []
+    for entry in cert.get("subjectAltName", []):
+        type_, value = entry
+        if type_.lower() == "dns":
+            san_entries.append(value.lower().rstrip("."))
+
+    if san_entries:
+        for pattern in san_entries:
+            if fnmatch.fnmatch(hostname, pattern):
+                return True
+        return False  # SANs present but none matched — do NOT fall through to CN
+
+    # 2. Fallback to Subject CN (only when no SANs are present)
+    subject = cert.get("subject", ())
+    for rdn in subject:
+        for attr_name, attr_value in rdn:
+            if attr_name == "commonName":
+                if fnmatch.fnmatch(hostname, attr_value.lower().rstrip(".")):
+                    return True
+    return False
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -181,13 +216,10 @@ def _build_result(cert: dict, hostname: str, tls_valid: bool,
     not_after  = _parse_datetime(cert.get("notAfter"))
     expired    = _is_cert_expired(not_after)
 
-    # Hostname match: check both CN and SAN
+    # Hostname match: check SANs and CN using RFC 2818/6125 rules
     hostname_matches: Optional[bool] = None
     try:
-        ssl.match_hostname(cert, hostname)
-        hostname_matches = True
-    except ssl.CertificateError:
-        hostname_matches = False
+        hostname_matches = _hostname_matches_cert(hostname, cert)
     except Exception:
         hostname_matches = None
 
