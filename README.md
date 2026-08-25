@@ -2,6 +2,12 @@
 
 ThreatLens is a comprehensive web-based URL security and threat analysis platform. It actively investigates submitted URLs and produces detailed security reports to help users identify potentially malicious links, phishing attempts, and brand impersonation before they click.
 
+## 🚀 Live Demo
+
+**Frontend:** https://threat-lens-sepia.vercel.app
+
+**Backend API:** https://threatlens-95ww.onrender.com
+
 ## 1. Project Overview
 
 **The Problem:** Malicious actors continuously deploy phishing pages, typosquatted domains, and obfuscated URLs to steal credentials and distribute malware. Standard users often lack the tools to verify a link's safety beyond basic visual inspection.
